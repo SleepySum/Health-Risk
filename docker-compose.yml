@@ -1,0 +1,45 @@
+# HealthRisk AI / HealthRisk Lab — Docker Compose
+#
+# Spins up the app container and an optional Postgres-backed MLflow/DVC backend
+# during later integration phases. The app container mounts the project root for
+# local iteration; production builds should use the built image instead.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: healthrisk-lab
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./notebooks:/app/notebooks
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional metadata backend for later MLflow/DVC integration
+  mlflow:
+    image: apache/mlflow:latest
+    container_name: healthrisk-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_artifacts:/opt/mlflow/server/models
+    environment:
+      - MLFLOW_HOST=0.0.0.0
+    profiles:
+      - mlflow
+
+volumes:
+  mlflow_artifacts:
